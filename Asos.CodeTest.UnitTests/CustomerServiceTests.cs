@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Asos.CodeTest.Exceptions;
+using Asos.CodeTest.Interfaces;
+using Asos.CodeTest.Models2;
 using Microsoft.Extensions.Logging;
 using Moq;
 using NUnit.Framework;
@@ -11,7 +13,7 @@ namespace Asos.CodeTest.UnitTests
 {
 
     [TestFixture]
-    public sealed class CustomerServiceShould
+    public sealed class CustomerServiceTests
     {
         private CustomerService _customerService;
 
@@ -68,7 +70,7 @@ namespace Asos.CodeTest.UnitTests
 
             _mockArchivedDataService
                 .Setup(a => a.GetArchivedCustomer(customerId))
-                .Returns(archivedCustomer);
+                .ReturnsAsync(archivedCustomer);
 
             // Act
             var result = await _customerService.GetCustomer(customerId, isCustomerArchived);
@@ -145,7 +147,7 @@ namespace Asos.CodeTest.UnitTests
 
             _mockArchivedDataService
                 .Setup(a => a.GetArchivedCustomer(customerId))
-                .Returns(archivedCustomer);
+                .ReturnsAsync(archivedCustomer);
 
             // Act
             var result = await _customerService.GetCustomer(customerId, isCustomerArchived);
@@ -206,6 +208,26 @@ namespace Asos.CodeTest.UnitTests
                 Times.Once);
 
             Assert.That(ex.Message, Is.EqualTo("An unexpected error occurred while retrieving customer data."));
+        }
+
+        [Test]
+        public void GetCustomer_Should_LogError_And_ThrowCustomException_WhenArchivedCustomerNotFound()
+        {
+            // Arrange
+            int customerId = 123;
+            bool isCustomerArchived = true;
+
+            // Mock the archived service to return null (simulating customer not found)
+            _mockArchivedDataService.Setup(service => service.GetArchivedCustomer(customerId))
+                                    .ReturnsAsync((Customer)null); // returns null
+
+            // Act & Assert
+            var exception = Assert.ThrowsAsync<CustomException>(async () =>
+                await _customerService.GetCustomer(customerId, isCustomerArchived));
+
+
+            // Verify the exception message
+            Assert.That(exception.Message, Is.EqualTo($"Archived customer with ID {customerId} not found."));
         }
     }
 }

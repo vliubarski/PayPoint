@@ -1,6 +1,7 @@
 ﻿using System.Threading.Tasks;
+using Asos.CodeTest.Models2;
 
-namespace Asos.CodeTest;
+namespace Asos.CodeTest.Interfaces;
 
 public interface IFailoverCustomerDataAccess
 {

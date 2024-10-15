@@ -1,37 +1,51 @@
-﻿using System.Configuration;
+﻿using Asos.CodeTest.Exceptions;
+using Asos.CodeTest.Interfaces;
+using Asos.CodeTest.Models2;
+using Microsoft.Extensions.Configuration;
+using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
+using System.Threading.Tasks;
 
 namespace Asos.CodeTest
 {
     public class ArchivedDataService : IArchivedDataService
     {
-        private readonly string connectionString;
+        private readonly string _connectionString;
 
-        public ArchivedDataService()
+        public ArchivedDataService(IConfiguration configuration)
         {
-            connectionString = ConfigurationManager.ConnectionStrings["Archive.Database.Connection"].ConnectionString;
+            _connectionString = configuration.GetConnectionString("Archive.Database.Connection");
+
+            if (string.IsNullOrWhiteSpace(_connectionString))
+            {
+                throw new ConfigurationErrorsException("Connection string 'Archive.Database.Connection' not found in configuration.");
+            }
         }
 
-        public Customer GetArchivedCustomer(int customerId)
+        public async Task<Customer> GetArchivedCustomer(int customerId)
         {
-            using (var sqlConnection = new SqlConnection(connectionString))
+            try
             {
-                sqlConnection.Open();
+                using var sqlConnection = new SqlConnection(_connectionString);
+                await sqlConnection.OpenAsync();
 
                 var command = new SqlCommand("SELECT Id, Name FROM Customer WHERE CustomerId = @customerId", sqlConnection) { CommandType = CommandType.Text };
-                command.Parameters.AddWithValue("@customerId", customerId);
+                command.Parameters.Add("@customerId", SqlDbType.Int).Value = customerId;
 
-                using (var reader = command.ExecuteReader())
+
+                using var reader = await command.ExecuteReaderAsync();
+                if (await reader.ReadAsync())
                 {
-                    if (reader.Read())
-                    {
-                        return new Customer { Id = reader.GetInt32(0), Name = reader.GetString(1) };
-                    }
+                    return new Customer { Id = reader.GetInt32(0), Name = reader.GetString(1) };
                 }
-            }
 
-            return null;
+                throw new CustomException($"Archived customer with ID {customerId} not found.");
+            }
+            catch (System.Exception ex)
+            {
+                throw new CustomException("An unexpected error occurred.", ex);
+            }
         }
     }
 }

@@ -1,4 +1,6 @@
 ﻿using Asos.CodeTest.Exceptions;
+using Asos.CodeTest.Interfaces;
+using Asos.CodeTest.Models2;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
@@ -31,7 +33,7 @@ public class CustomerService
         try
         {
             return isCustomerArchived
-                ? GetArchivedCustomer(customerId)
+                ? await GetArchivedCustomer(customerId)
                 : await GetCustomerFromFailoverOrCustomerRepo(customerId);
         }
         catch (CustomException ce)
@@ -53,7 +55,7 @@ public class CustomerService
         var customerResponse = await GetResponseFromFailoverOrCustomerApi(customerId, numberOfFailedRequests);
 
         return customerResponse.IsArchived
-            ? _archivedDataService.GetArchivedCustomer(customerId) // should be async but a change is restricted by requirements
+            ? await _archivedDataService.GetArchivedCustomer(customerId)
             : customerResponse.Customer;
     }
 
@@ -63,7 +65,7 @@ public class CustomerService
     /// </summary>
     private Func<FailoverEntry, bool> EntriesInLastXMinutes()
     {
-        var thresholdTime = DateTime.Now.AddMinutes(-_settings.FailedRequestsAging);
+        var thresholdTime = DateTime.UtcNow.AddMinutes(-_settings.FailedRequestsAging);
         return x => x.DateTime > thresholdTime;
     }
 
@@ -76,12 +78,19 @@ public class CustomerService
             ? await _failoverCustomerDataAccess.GetCustomerById(customerId) 
             : await _customerDataAccess.LoadCustomerAsync(customerId);
 
-        return customerResponse ?? throw new CustomException($"Customer response for ID {customerId} is null.");
+        return customerResponse ?? throw new CustomException(
+            $"Customer response for ID {customerId} is null, number of failed requests is {numberOfFailedRequests}.");
     }
 
-    private Customer GetArchivedCustomer(int customerId)
+    private async Task<Customer> GetArchivedCustomer(int customerId)
     {
-        Customer archivedCustomer = _archivedDataService.GetArchivedCustomer(customerId);
-        return archivedCustomer ?? throw new CustomException($"Archived customer with ID {customerId} not found.");
+        Customer archivedCustomer = await _archivedDataService.GetArchivedCustomer(customerId);
+
+        if(archivedCustomer != null)
+        {
+            return archivedCustomer;
+        }
+        _logger.LogError("Custom error occurred in GetArchivedCustomer for ID: {customerId}", customerId);
+        throw new CustomException($"Archived customer with ID {customerId} not found.");
     }
 }

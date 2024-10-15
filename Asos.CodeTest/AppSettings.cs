@@ -1,5 +1,6 @@
 using System;
 using System.Configuration;
+using Asos.CodeTest.Interfaces;
 
 namespace Asos.CodeTest
 {

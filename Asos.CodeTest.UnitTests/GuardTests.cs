@@ -1,4 +1,5 @@
 ﻿using Asos.CodeTest.Exceptions;
+using Asos.CodeTest.Interfaces;
 using NUnit.Framework;
 using System;
 
